@@ -159,6 +159,10 @@ Additional BSD Notice
 # include <omp.h>
 #endif
 
+#ifdef USE_DYNAMORIO
+#include <dr_api.h>
+#endif
+
 #include "lulesh.h"
 
 /* Work Routines */
@@ -230,41 +234,51 @@ void CollectDomainNodesToElemNodes(Domain &domain,
                                    Real_t elemY[8],
                                    Real_t elemZ[8])
 {
-   Index_t nd0i = elemToNode[0] ;
-   Index_t nd1i = elemToNode[1] ;
-   Index_t nd2i = elemToNode[2] ;
-   Index_t nd3i = elemToNode[3] ;
-   Index_t nd4i = elemToNode[4] ;
-   Index_t nd5i = elemToNode[5] ;
-   Index_t nd6i = elemToNode[6] ;
-   Index_t nd7i = elemToNode[7] ;
+   // Index_t nd0i = elemToNode[0] ;
+   // Index_t nd1i = elemToNode[1] ;
+   // Index_t nd2i = elemToNode[2] ;
+   // Index_t nd3i = elemToNode[3] ;
+   // Index_t nd4i = elemToNode[4] ;
+   // Index_t nd5i = elemToNode[5] ;
+   // Index_t nd6i = elemToNode[6] ;
+   // Index_t nd7i = elemToNode[7] ;
 
-   elemX[0] = domain.x(nd0i);
-   elemX[1] = domain.x(nd1i);
-   elemX[2] = domain.x(nd2i);
-   elemX[3] = domain.x(nd3i);
-   elemX[4] = domain.x(nd4i);
-   elemX[5] = domain.x(nd5i);
-   elemX[6] = domain.x(nd6i);
-   elemX[7] = domain.x(nd7i);
+   // elemX[0] = domain.x(nd0i);
+   // elemX[1] = domain.x(nd1i);
+   // elemX[2] = domain.x(nd2i);
+   // elemX[3] = domain.x(nd3i);
+   // elemX[4] = domain.x(nd4i);
+   // elemX[5] = domain.x(nd5i);
+   // elemX[6] = domain.x(nd6i);
+   // elemX[7] = domain.x(nd7i);
 
-   elemY[0] = domain.y(nd0i);
-   elemY[1] = domain.y(nd1i);
-   elemY[2] = domain.y(nd2i);
-   elemY[3] = domain.y(nd3i);
-   elemY[4] = domain.y(nd4i);
-   elemY[5] = domain.y(nd5i);
-   elemY[6] = domain.y(nd6i);
-   elemY[7] = domain.y(nd7i);
+   // elemY[0] = domain.y(nd0i);
+   // elemY[1] = domain.y(nd1i);
+   // elemY[2] = domain.y(nd2i);
+   // elemY[3] = domain.y(nd3i);
+   // elemY[4] = domain.y(nd4i);
+   // elemY[5] = domain.y(nd5i);
+   // elemY[6] = domain.y(nd6i);
+   // elemY[7] = domain.y(nd7i);
 
-   elemZ[0] = domain.z(nd0i);
-   elemZ[1] = domain.z(nd1i);
-   elemZ[2] = domain.z(nd2i);
-   elemZ[3] = domain.z(nd3i);
-   elemZ[4] = domain.z(nd4i);
-   elemZ[5] = domain.z(nd5i);
-   elemZ[6] = domain.z(nd6i);
-   elemZ[7] = domain.z(nd7i);
+   // elemZ[0] = domain.z(nd0i);
+   // elemZ[1] = domain.z(nd1i);
+   // elemZ[2] = domain.z(nd2i);
+   // elemZ[3] = domain.z(nd3i);
+   // elemZ[4] = domain.z(nd4i);
+   // elemZ[5] = domain.z(nd5i);
+   // elemZ[6] = domain.z(nd6i);
+   // elemZ[7] = domain.z(nd7i);
+
+// dr_app_start();
+   #pragma omp parallel for simd
+   #pragma vector always
+   for (int i = 0; i < 8; i++) {
+      elemX[i] = domain.x(elemToNode[i]);
+      elemY[i] = domain.y(elemToNode[i]);
+      elemZ[i] = domain.z(elemToNode[i]);
+   }
+// dr_app_stop();
 
 }
 
@@ -278,8 +292,7 @@ void InitStressTermsForElems(Domain &domain,
    //
    // pull in the stresses appropriate to the hydro integration
    //
-
-#pragma omp parallel for firstprivate(numElem)
+#pragma omp parallel for simd firstprivate(numElem)
    for (Index_t i = 0 ; i < numElem ; ++i){
       sigxx[i] = sigyy[i] = sigzz[i] =  - domain.p(i) - domain.q(i) ;
    }
@@ -345,32 +358,41 @@ void CalcElemShapeFunctionDerivatives( Real_t const x[],
      this need only be done for l = 0,1,2,3   since , by symmetry ,
      (6,7,4,5) = - (0,1,2,3) .
   */
-  b[0][0] =   -  cjxxi  -  cjxet  -  cjxze;
-  b[0][1] =      cjxxi  -  cjxet  -  cjxze;
-  b[0][2] =      cjxxi  +  cjxet  -  cjxze;
-  b[0][3] =   -  cjxxi  +  cjxet  -  cjxze;
-  b[0][4] = -b[0][2];
-  b[0][5] = -b[0][3];
-  b[0][6] = -b[0][0];
-  b[0][7] = -b[0][1];
+  Real_t btemp[24];
+  btemp[0] =   -  cjxxi  -  cjxet  -  cjxze;
+  btemp[1] =      cjxxi  -  cjxet  -  cjxze;
+  btemp[2] =      cjxxi  +  cjxet  -  cjxze;
+  btemp[3] =   -  cjxxi  +  cjxet  -  cjxze;
+  btemp[4] = -btemp[2];
+  btemp[5] = -btemp[3];
+  btemp[6] = -btemp[0];
+  btemp[7] = -btemp[1];
 
-  b[1][0] =   -  cjyxi  -  cjyet  -  cjyze;
-  b[1][1] =      cjyxi  -  cjyet  -  cjyze;
-  b[1][2] =      cjyxi  +  cjyet  -  cjyze;
-  b[1][3] =   -  cjyxi  +  cjyet  -  cjyze;
-  b[1][4] = -b[1][2];
-  b[1][5] = -b[1][3];
-  b[1][6] = -b[1][0];
-  b[1][7] = -b[1][1];
+  btemp[1 * 8 + 0] =   -  cjyxi  -  cjyet  -  cjyze;
+  btemp[1 * 8 + 1] =      cjyxi  -  cjyet  -  cjyze;
+  btemp[1 * 8 + 2] =      cjyxi  +  cjyet  -  cjyze;
+  btemp[1 * 8 + 3] =   -  cjyxi  +  cjyet  -  cjyze;
+  btemp[1 * 8 + 4] = -btemp[1 * 8 + 2];
+  btemp[1 * 8 + 5] = -btemp[1 * 8 + 3];
+  btemp[1 * 8 + 6] = -btemp[1 * 8 + 0];
+  btemp[1 * 8 + 7] = -btemp[1 * 8 + 1];
 
-  b[2][0] =   -  cjzxi  -  cjzet  -  cjzze;
-  b[2][1] =      cjzxi  -  cjzet  -  cjzze;
-  b[2][2] =      cjzxi  +  cjzet  -  cjzze;
-  b[2][3] =   -  cjzxi  +  cjzet  -  cjzze;
-  b[2][4] = -b[2][2];
-  b[2][5] = -b[2][3];
-  b[2][6] = -b[2][0];
-  b[2][7] = -b[2][1];
+  btemp[2 * 8 + 0] =   -  cjzxi  -  cjzet  -  cjzze;
+  btemp[2 * 8 + 1] =      cjzxi  -  cjzet  -  cjzze;
+  btemp[2 * 8 + 2] =      cjzxi  +  cjzet  -  cjzze;
+  btemp[2 * 8 + 3] =   -  cjzxi  +  cjzet  -  cjzze;
+  btemp[2 * 8 + 4] = -btemp[2 * 8 + 2];
+  btemp[2 * 8 + 5] = -btemp[2 * 8 + 3];
+  btemp[2 * 8 + 6] = -btemp[2 * 8 + 0];
+  btemp[2 * 8 + 7] = -btemp[2 * 8 + 1];
+
+  #pragma omp parallel for simd
+  #pragma vector always
+  for (int i = 0; i < 4; i++) {
+     for (int j = 0; j < 8; j++) {
+        b[i][j] = btemp[i * 8 + j];
+     }
+  }
 
   /* calculate jacobian determinant (volume) */
   *volume = Real_t(8.) * ( fjxet * cjxet + fjyet * cjyet + fjzet * cjzet);
@@ -482,6 +504,7 @@ void SumElemStressesToNodeForces( const Real_t B[][8],
                                   const Real_t stress_zz,
                                   Real_t fx[], Real_t fy[], Real_t fz[] )
 {
+   #pragma omp simd
    for(Index_t i = 0; i < 8; i++) {
       fx[i] = -( stress_xx * B[0][i] );
       fy[i] = -( stress_yy * B[1][i]  );
@@ -518,7 +541,7 @@ void IntegrateStressForElems( Domain &domain,
   }
   // loop over all elements
 
-#pragma omp parallel for firstprivate(numElem)
+#pragma omp parallel for simd firstprivate(numElem)
   for( Index_t k=0 ; k<numElem ; ++k )
   {
     const Index_t* const elemToNode = domain.nodelist(k);
@@ -550,6 +573,7 @@ void IntegrateStressForElems( Domain &domain,
                                     fx_local, fy_local, fz_local ) ;
 
        // copy nodal force contributions to global force arrray.
+       #pragma omp simd
        for( Index_t lnode=0 ; lnode<8 ; ++lnode ) {
           Index_t gnode = elemToNode[lnode];
           domain.fx(gnode) += fx_local[lnode];
@@ -562,7 +586,7 @@ void IntegrateStressForElems( Domain &domain,
   if (numthreads > 1) {
      // If threaded, then we need to copy the data out of the temporary
      // arrays used above into the final forces field
-#pragma omp parallel for firstprivate(numNode)
+#pragma omp parallel for simd firstprivate(numNode) lastprivate(numNode)
      for( Index_t gnode=0 ; gnode<numNode ; ++gnode )
      {
         Index_t count = domain.nodeElemCount(gnode) ;
@@ -2707,6 +2731,10 @@ int main(int argc, char *argv[])
       std::cout << "See help (-h) for more options\n\n";
    }
 
+#ifdef USE_DYNAMORIO
+   dr_app_setup_and_start();
+#endif
+
    // Set up the mesh and decompose. Assumes regular cubes for now
    Int_t col, row, plane, side;
    InitMeshDecomp(numRanks, myRank, &col, &row, &plane, &side);
@@ -2788,5 +2816,10 @@ int main(int argc, char *argv[])
    MPI_Finalize() ;
 #endif
 
+#ifdef USE_DYNAMORIO
+   dr_app_stop_and_cleanup();
+#endif
+
    return 0 ;
 }
+

@@ -52,4 +52,21 @@ set(LULESH_SOURCES
 set(LULESH_EXEC lulesh2.0)
 
 add_executable(${LULESH_EXEC} ${LULESH_SOURCES})
-target_link_libraries(${LULESH_EXEC} ${LULESH_EXTERNAL_LIBS})
+
+target_link_libraries(${LULESH_EXEC} LINK_PUBLIC ${LULESH_EXTERNAL_LIBS})
+
+
+
+add_definitions(-DUSE_DYNAMORIO)
+add_definitions(-DUNIX)
+add_definitions(-DX86_64)
+
+find_package(DynamoRIO)
+if (NOT DynamoRIO_FOUND)
+  message(FATAL_ERROR "DynamoRIO package required to build")
+endif ()
+set_target_properties(${LULESH_EXEC} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build")
+configure_DynamoRIO_standalone(${LULESH_EXEC})
+
+set_property(TARGET ${LULESH_EXEC} PROPERTY COMPILE_FLAGS "${COMPILE_FLAGS} -O3 -ftree-vectorize -march=native -mtune=native")
+
